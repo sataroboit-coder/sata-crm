@@ -145,6 +145,12 @@ export const config = {
     return v === 'enforce' || v === 'off' ? v : 'report-only';
   })() as 'report-only' | 'enforce' | 'off',
 
+  // ── F2 (bản phái sinh Sata Robo) — lối thoát bộ gác SSRF, CHỈ cho máy lẻ ────
+  // Bộ gác chặn loopback/mạng nội bộ, và đúng như vậy trên máy chủ thật. Nhưng khi
+  // dựng thử trên một máy, site quản trị nằm ở `localhost` nên không thử được gì.
+  // 🔴 Bật trên máy chủ thật = tự mở đường cho người trong tổ chức dò mạng nội bộ.
+  webhookAllowLoopback: envValue('WEBHOOK_ALLOW_LOOPBACK') === '1',
+
   // ── F1 (bản phái sinh Sata Robo) — bí mật CHUNG để kiểm vé SSO do Sata ký ────
   // Cùng một chuỗi phải khai ở hai nơi: `SATA_SSO_SECRET` bên này và
   // `ZALOCRM_SSO_SECRET` bên Sata. Ai cầm chuỗi này thì ký được vé vào bất kỳ tài

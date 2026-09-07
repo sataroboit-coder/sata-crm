@@ -389,6 +389,12 @@ async function bootstrap() {
     // Phase 8 — Engagement heatmap classification (02:30 VN daily)
     const { startEngagementCron } = await import('./modules/engagement/engagement-cron.js');
     startEngagementCron();
+    // F2 (bản phái sinh Sata Robo) — người thử lại của hàng đợi webhook.
+    // Quét mỗi 10 giây; lịch thử lại thật nằm trên từng dòng (1s · 30s · 5 phút).
+    // Bật vô điều kiện: không org nào cấu hình webhook thì hàng đợi luôn rỗng và
+    // vòng quét không tốn gì.
+    const { batNguoiThuLai } = await import('./modules/api/webhook-outbox.js');
+    batNguoiThuLai();
     // Phase A — Real-time Zalo presence cache + bulk refresh 60s + socket emit
     const { startPresenceCron } = await import('./modules/zalo/presence-service.js');
     startPresenceCron(io);

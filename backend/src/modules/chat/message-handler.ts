@@ -10,6 +10,7 @@ import { safeContactUpdate, safeContactCreate } from '../../shared/database/safe
 import { publishMessagePersisted } from '../../shared/bridge-bus.js';
 import { randomUUID } from 'node:crypto';
 import { emitWebhook } from '../api/webhook-service.js';
+import { dungNguCanhTinNhan } from '../api/sata-message-event.js';
 import { runAutomationRules } from '../../shared/ee-registry/automation.js';
 import { automationEventBus } from '../../shared/ee-registry/event-bus.js';
 import { applyContactAggregateFromMessage, applyContactInteraction, applyFriendAggregate } from '../contacts/contact-aggregate.js';
@@ -368,6 +369,53 @@ export async function handleIncomingMessage(
           // publishMessagePersisted Ở ĐÂY để cầu mirror sang Telegram. Tin sentVia='bridge'
           // (gốc Telegram) sẽ bị forwarder bỏ qua (chống lặp).
           publishMessagePersisted({ messageId: recentDupe.id, conversationId: conversation.id });
+
+          // ── F2 (bản phái sinh Sata Robo) — BẮN `message.sent` Ở ĐÂY ────────────
+          // Đường này `return null` TRƯỚC chỗ bắn webhook ở cuối hàm, nên ở bản gốc
+          // mọi tin Sale gõ TRONG GIAO DIỆN ZaloCRM đều không báo ra ngoài. Bên nhận
+          // vì thế không bao giờ biết Sale đã trả lời khách — mốc "đã chạm khách"
+          // không được ghi và đồng hồ chăm sóc của phiếu cứ chạy như chưa ai làm gì.
+          //
+          // Đây là echo của một tin CỦA CHÍNH MÌNH đã nằm trong DB, nên `message.sent`
+          // là đúng tên sự kiện. Bên nhận chống trùng theo `messageId` nên gửi hai lần
+          // cũng không đẻ dòng thứ hai.
+          void (async () => {
+            try {
+              const dong = await prisma.message.findUnique({
+                where: { id: recentDupe.id },
+                select: {
+                  id: true,
+                  content: true,
+                  contentType: true,
+                  sentAt: true,
+                  senderName: true,
+                  repliedByUserId: true,
+                },
+              });
+              if (!dong) return;
+              const data = await dungNguCanhTinNhan({
+                messageId: dong.id,
+                conversationId: conversation.id,
+                zaloAccountId: msg.accountId,
+                threadId: msg.threadId,
+                threadType: msg.threadType,
+                senderUid: msg.senderUid,
+                senderName: dong.senderName,
+                content: dong.content,
+                contentType: dong.contentType,
+                sentAt: dong.sentAt,
+                contactId,
+                repliedByUserId: dong.repliedByUserId,
+              });
+              await emitWebhook(account.orgId, 'message.sent', data);
+            } catch (err) {
+              logger.warn(
+                { err: (err as Error)?.message },
+                '[message-handler] không bắn được message.sent cho tin gõ trong giao diện',
+              );
+            }
+          })();
+
           logger.debug('[message-handler] Skipping self echo: content match within 30s');
           return null;
         }
@@ -609,14 +657,27 @@ export async function handleIncomingMessage(
     }
 
     // Emit webhook for message event (fire-and-forget)
-    emitWebhook(account.orgId, msg.isSelf ? 'message.sent' : 'message.received', {
+    // F2 (bản phái sinh Sata Robo) — payload GIÀU NGỮ CẢNH. Xem `sata-message-event.ts`
+    // để biết vì sao thiếu `zaloAccountId`/`threadId`/`sentByExternalId` là bên nhận
+    // hỏng, và hỏng theo kiểu im lặng.
+    void dungNguCanhTinNhan({
       messageId: message.id,
       conversationId: conversation.id,
+      zaloAccountId: msg.accountId,
+      threadId: msg.threadId,
+      threadType: msg.threadType,
       senderUid: msg.senderUid,
+      senderName: msg.senderName,
       content: msg.content,
       contentType: msg.contentType,
       sentAt: message.sentAt,
-    });
+      contactId,
+      // Tin đi qua đường này là tin ĐỒNG BỘ VỀ TỪ ZALO (sale gõ trên điện thoại,
+      // hoặc echo chưa khớp placeholder) — không có người bấm Gửi trong giao diện.
+      repliedByUserId: null,
+    }).then((data) =>
+      emitWebhook(account.orgId, msg.isSelf ? 'message.sent' : 'message.received', data),
+    );
 
     if (!msg.isSelf) {
       const org = await prisma.organization.findUnique({

@@ -74,11 +74,38 @@ SSO mở lại · tài khoản sinh từ SSO mang `passwordHash` không phải b
 
 ---
 
+### F2 — webhook giàu ngữ cảnh + hàng đợi gửi lại
+
+| Tệp | Sửa |
+|---|---|
+| `backend/prisma/schema.prisma` | bảng mới `WebhookOutbox` |
+| `backend/prisma/migrations/20260907162806_sata_webhook_outbox/` | migration thuần thêm |
+| `backend/src/modules/api/webhook-outbox.ts` | **mới** — xếp hàng, ký lúc giao, thử lại 1s/30s/5 phút |
+| `backend/src/modules/api/sata-message-event.ts` | **mới** — dựng payload giàu ngữ cảnh |
+| `backend/src/modules/api/webhook-service.ts` | `emitWebhook` xếp hàng thay vì “bắn rồi quên”; thêm lối thoát SSRF `WEBHOOK_ALLOW_LOOPBACK` **chỉ cho máy lẻ** |
+| `backend/src/modules/chat/message-handler.ts` | payload giàu ngữ cảnh; **và bắn `message.sent` cho tin gõ trong giao diện** (nhánh guard 30 giây trước đây `return null` trước chỗ bắn) |
+| `backend/src/modules/contacts/contact-routes.ts` | thêm sự kiện `contact.phone_set` |
+| `backend/src/app.ts` | bật người thử lại lúc khởi động |
+| `backend/src/config/index.ts` | thêm `webhookAllowLoopback` |
+
+Ba điều đáng nhớ:
+
+1. **Ký HMAC trên chuỗi payload ĐÃ LƯU**, không ký lại từ object — `JSON.stringify` không
+   cam kết cho ra y hệt giữa hai lần, ký lại là lần thử thứ hai có chữ ký khác lần đầu và
+   bên nhận trả 401.
+2. **Chỉ 2xx mới tính là đã giao.** 4xx cũng thử lại đủ lượt: bên nhận có thể đang trả 401
+   vì chưa kịp nạp khoá sau một lần triển khai.
+3. **Tin Sale gõ trong giao diện ZaloCRM trước đây KHÔNG báo ra ngoài** — nhánh chống echo
+   `return null` trước chỗ bắn webhook. Bên nhận vì thế không bao giờ biết Sale đã trả lời,
+   và đồng hồ chăm sóc của phiếu cứ chạy như chưa ai làm gì.
+
+🔴 `WEBHOOK_ALLOW_LOOPBACK=1` **chỉ dùng ở máy lẻ**. Bật trên máy chủ thật là mở đường cho
+người trong tổ chức dò mạng nội bộ qua ô địa chỉ webhook.
+
+---
+
 ## Chưa làm (các việc còn lại của kế hoạch tích hợp)
 
-- **F2** — webhook giàu ngữ cảnh (`zaloAccountId`, `threadId`, `threadType`, `contactId`,
-  `contact.phone`, `sentByExternalId`) + hàng đợi gửi lại. Thiếu nó thì phía Sata trả
-  `200 + FAILED` kèm mã lỗi, thấy được ở màn Tích hợp.
 - **F4** — mở rộng Public API (giai đoạn 3).
 - **F5** — nút “Tạo lead Sata” trong màn chat.
 - **F6** — nghĩa vụ giấy phép (bảng ở trên).

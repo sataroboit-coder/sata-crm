@@ -1262,6 +1262,22 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
           },
         });
 
+        // ── F2 (bản phái sinh Sata Robo) — sự kiện RIÊNG khi SĐT vừa được điền ────
+        // Vì sao không để bên nhận tự lọc `contact.updated`: sự kiện đó bắn cho MỌI
+        // thay đổi trong chín trường (đổi tên, đổi ghi chú, đổi người phụ trách…), và
+        // bên nhận chỉ quan tâm đúng một biến cố — "hội thoại này vừa có số điện thoại,
+        // giờ nối được vào phiếu khách". Tách riêng thì bên nhận không phải đọc và bỏ
+        // đi phần lớn lưu lượng, và cũng không phải đoán xem `changes` có nghĩa gì.
+        //
+        // Chỉ bắn khi SĐT thật sự vừa CÓ GIÁ TRỊ: xoá số đi thì không nối được gì thêm.
+        if (Object.prototype.hasOwnProperty.call(infoDiff, 'phone') && updated.phone) {
+          void emitWebhook(user.orgId, 'contact.phone_set', {
+            contactId: updated.id,
+            phone: updated.phone,
+            contact: { id: updated.id, fullName: updated.fullName, phone: updated.phone },
+          });
+        }
+
         // M55 2026-05-30: Emit socket cho collaborator để FE toast "Sale X
         // vừa sửa SDT KH Y lúc HH:mm" — đồng bộ realtime giữa các sale cùng chăm.
         const io = (app as any).io as Server | undefined;

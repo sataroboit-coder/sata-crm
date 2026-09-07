@@ -11,7 +11,8 @@
 import { prisma } from '../../shared/database/prisma-client.js';
 import { logger } from '../../shared/utils/logger.js';
 import { assertSafeOutboundUrl, SsrfBlockedError } from '../../shared/utils/ssrf-guard.js';
-import crypto from 'node:crypto';
+import { xepHang } from './webhook-outbox.js';
+import { config as appConfig } from '../../config/index.js';
 
 export async function emitWebhook(orgId: string, event: string, data: any): Promise<void> {
   try {
@@ -26,32 +27,35 @@ export async function emitWebhook(orgId: string, event: string, data: any): Prom
       safeUrl = assertSafeOutboundUrl(config.valuePlain);
     } catch (err) {
       if (err instanceof SsrfBlockedError) {
-        logger.warn(`[webhook] Blocked unsafe webhook_url for org ${orgId}: ${err.message}`);
-        return;
+        // ── F2 (bản phái sinh Sata Robo) — lối thoát CHỈ cho máy lẻ ──────────────
+        // Bộ gác SSRF chặn loopback/mạng nội bộ, và đúng như vậy: địa chỉ webhook do
+        // quản trị viên của tổ chức đặt, tức người trong nhà cũng có thể trỏ nó vào
+        // dịch vụ nội bộ để dò. Nhưng khi dựng thử trên MỘT máy, site quản trị nằm ở
+        // `localhost` — không có lối thoát thì không thử được gì.
+        //
+        // 🔴 `WEBHOOK_ALLOW_LOOPBACK` CHỈ dùng ở máy lẻ. Bật trên máy chủ thật là tự
+        // mở đường cho người trong tổ chức dò mạng nội bộ. Mặc định TẮT.
+        if (appConfig.webhookAllowLoopback) {
+          logger.warn(
+            `[webhook] WEBHOOK_ALLOW_LOOPBACK đang bật — bỏ qua bộ gác SSRF cho ${config.valuePlain}. ` +
+              'Chỉ được dùng ở máy phát triển.',
+          );
+          safeUrl = new URL(config.valuePlain);
+        } else {
+          logger.warn(`[webhook] Blocked unsafe webhook_url for org ${orgId}: ${err.message}`);
+          return;
+        }
+      } else {
+        throw err;
       }
-      throw err;
     }
 
-    const secretSetting = await prisma.appSetting.findFirst({
-      where: { orgId, settingKey: 'webhook_secret' },
-    });
-
     const payload = JSON.stringify({ event, timestamp: new Date().toISOString(), data });
-    const signature = secretSetting?.valuePlain
-      ? crypto.createHmac('sha256', secretSetting.valuePlain).update(payload).digest('hex')
-      : '';
 
-    // Fire and forget — never block the caller
-    fetch(safeUrl.toString(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Webhook-Signature': signature,
-        'X-Webhook-Event': event,
-      },
-      body: payload,
-      signal: AbortSignal.timeout(10000),
-    }).catch((err) => logger.warn(`[webhook] Failed to deliver ${event}:`, err));
+    // ── F2 (bản phái sinh Sata Robo) — xếp hàng thay vì "bắn rồi quên" ─────────
+    // Chuỗi `payload` ở trên được lưu NGUYÊN VĂN và ký ở thời điểm giao. Xem
+    // `webhook-outbox.ts` để biết vì sao không được ký lại từ object.
+    await xepHang(orgId, event, safeUrl.toString(), payload);
   } catch (err) {
     logger.error('[webhook] Error emitting webhook:', err);
   }

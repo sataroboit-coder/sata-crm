@@ -7,6 +7,41 @@ datasource db {
 }
 
 // Top-level org — every resource is scoped to an org
+/// F2 (bản phái sinh Sata Robo) — HÀNG ĐỢI GỬI WEBHOOK, thay cho "bắn rồi quên".
+///
+/// Bản gốc gọi `fetch(...).catch(log)`: bên nhận chậm hay vừa khởi động lại là tin
+/// **mất hẳn**, không ai biết. Bên nhận ở đây là một ứng dụng chạy trên nền tảng
+/// serverless — lần gọi đầu sau lúc rảnh rỗi hoàn toàn có thể quá 10 giây.
+///
+/// Mỗi sự kiện thành một dòng, có người thử lại và có vết. Ba lần thử: 1 giây,
+/// 30 giây, 5 phút — đủ vượt một cú khởi động lạnh mà không giữ hàng đợi quá lâu.
+model WebhookOutbox {
+  id    String @id @default(uuid())
+  orgId String @map("org_id")
+  event String
+
+  /// Chuỗi JSON ĐÃ SERIALIZE, không phải object.
+  /// 🔴 BẮT BUỘC lưu nguyên chuỗi: chữ ký HMAC tính trên CHÍNH chuỗi này, và
+  /// `JSON.stringify` không cam kết cho ra y hệt nhau giữa hai lần. Ký lại từ object
+  /// thì lần thử thứ hai có thể ra chữ ký khác lần đầu và bên nhận trả 401.
+  payload String @db.Text
+  url     String @db.Text
+
+  /// pending | delivered | failed (hết lượt thử)
+  status        String    @default("pending")
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @map("next_attempt_at")
+  /// Mã HTTP lần gần nhất — thứ bản gốc không lưu, nên không ai biết bên kia trả gì.
+  lastStatus    Int?      @map("last_status")
+  lastError     String?   @map("last_error") @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+  deliveredAt   DateTime? @map("delivered_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([orgId, createdAt])
+  @@map("webhook_outbox")
+}
+
 model Organization {
   id       String @id @default(uuid())
   name     String
