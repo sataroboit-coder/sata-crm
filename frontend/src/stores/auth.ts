@@ -99,6 +99,29 @@ export const useAuthStore = defineStore('auth', () => {
     persistTokens(res.data.token, res.data.refreshToken);
   }
 
+  /**
+   * F1 (bản phái sinh Sata Robo) — đổi VÉ SSO lấy phiên.
+   *
+   * Dùng lại nguyên khuôn `login()` ở trên: cùng hình dạng phản hồi, cùng
+   * `persistTokens`. Khác đúng một chỗ — gửi vé thay vì tài khoản/mật khẩu.
+   * Tách riêng thay vì thêm cờ vào `login()` để đường mật khẩu không phải gánh
+   * thêm một nhánh rẽ mà nó chẳng liên quan.
+   */
+  async function ssoLogin(ticket: string) {
+    const res = await api.post('/auth/sso', { token: ticket });
+    user.value = {
+      ...res.data.user,
+      avatarUrl: res.data.user.avatarUrl ?? null,
+      grants: res.data.user.grants ?? {},
+      permissionGroupName: res.data.user.permissionGroup?.name ?? null,
+      isFullAccess: res.data.user.isFullAccess ?? false,
+      deptRole: res.data.user.deptRole ?? null,
+      departmentId: res.data.user.departmentId ?? null,
+      canViewAll: res.data.user.canViewAll ?? false,
+    };
+    persistTokens(res.data.token, res.data.refreshToken);
+  }
+
   async function fetchProfile() {
     try {
       const res = await api.get('/profile');
@@ -153,5 +176,5 @@ export const useAuthStore = defineStore('auth', () => {
     if (patch.avatarUrl !== undefined) user.value.avatarUrl = patch.avatarUrl;
   }
 
-  return { user, token, needsSetup, isAuthenticated, isOwner, isAdmin, isManager, canAccess, checkSetup, setup, login, fetchProfile, logout, init, updateProfile };
+  return { user, token, needsSetup, isAuthenticated, isOwner, isAdmin, isManager, canAccess, checkSetup, setup, login, ssoLogin, fetchProfile, logout, init, updateProfile };
 });

@@ -145,6 +145,33 @@ export const config = {
     return v === 'enforce' || v === 'off' ? v : 'report-only';
   })() as 'report-only' | 'enforce' | 'off',
 
+  // ── F1 (bản phái sinh Sata Robo) — bí mật CHUNG để kiểm vé SSO do Sata ký ────
+  // Cùng một chuỗi phải khai ở hai nơi: `SATA_SSO_SECRET` bên này và
+  // `ZALOCRM_SSO_SECRET` bên Sata. Ai cầm chuỗi này thì ký được vé vào bất kỳ tài
+  // khoản nào của bất kỳ tổ chức nào — coi nó ngang mật khẩu quản trị.
+  // 🔴 BỎ TRỐNG (mặc định) = TẮT HẲN đường SSO, endpoint trả 404. Không cấu hình thì
+  // bản phái sinh chạy y hệt bản gốc.
+  sataSsoSecret: envValue('SATA_SSO_SECRET') || '',
+
+  // ── F3 (bản phái sinh Sata Robo) — cho phép nhúng trong iframe của site quản trị ──
+  // Bản gốc chặn nhúng vô điều kiện: CSP `frame-ancestors 'none'` + `X-Frame-Options: DENY`.
+  // Đúng cho bản chạy độc lập, nhưng khoá cứng luôn cả kịch bản nhúng có kiểm soát.
+  //
+  // FRAME_ANCESTORS = danh sách origin ngăn cách bằng dấu phẩy, ví dụ
+  //   FRAME_ANCESTORS="https://admin.satarobo.vn,https://test.satarobo.vn"
+  //
+  // 🔴 BỎ TRỐNG (mặc định) = GIỮ NGUYÊN HÀNH VI BẢN GỐC: 'none' + X-Frame-Options DENY.
+  // Không khai thì không có gì nới ra — đây là cổng mở-có-chủ-đích, không phải nới mặc định.
+  // Chỉ liệt kê origin mình thật sự sở hữu: mỗi origin ở đây là một trang được phép
+  // bọc giao diện này và đọc được những gì người dùng thấy trong khung.
+  frameAncestors: (() => {
+    const raw = envValue('FRAME_ANCESTORS') || '';
+    return raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  })() as string[],
+
   // C2 2026-06-08 — bật để socket handshake TỪ CHỐI token legacy (thiếu typ:'access').
   // Mặc định false trong giai đoạn cutover (token 7d cũ còn lưu hành). Bật true SAU
   // khi bump jwtTokenVersion toàn bộ + telemetry xác nhận legacy hết (mọi socket ≤15').

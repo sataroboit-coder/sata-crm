@@ -22,6 +22,15 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/SetupView.vue'),
     meta: { layout: 'auth' },
   },
+  // F1 (bản phái sinh Sata Robo) — trung chuyển đăng nhập một lần từ site quản trị.
+  // `public: true` là BẮT BUỘC: lúc trang này chạy thì chưa có phiên nào (nó sinh ra
+  // để tạo phiên). Thiếu cờ đó thì bộ gác đá về /login và vé không bao giờ được đổi.
+  {
+    path: '/sso',
+    name: 'SataSso',
+    component: () => import('@/views/SsoView.vue'),
+    meta: { layout: 'auth', public: true },
+  },
   // Phase Onboarding v1 2026-05-24 — force change password lần đầu
   {
     path: '/setup-password',

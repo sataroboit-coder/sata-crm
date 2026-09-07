@@ -14,6 +14,16 @@ model Organization {
   // Mặc định +07:00 (Việt Nam) để mọi timestamp render trong UI và log đều đồng nhất, dễ decode.
   timezone String @default("+07:00")
 
+  // ── F1 (bản phái sinh Sata Robo) — mã tổ chức ỔN ĐỊNH, do người vận hành đặt ──
+  // Vé SSO từ Sata mang `orgCode` chứ KHÔNG mang `id`: id là uuid sinh lúc tạo org,
+  // không ai gõ được và đổi theo từng lần dựng lại máy chủ, nên không dùng làm khoá
+  // đối chiếu giữa hai hệ. `code` là thứ người vận hành khai được ở cả hai bên
+  // (bên Sata là tham số `zalocrm.orgCodes`).
+  // NULLABLE: org tạo trước bản vá này vẫn chạy bình thường, chỉ là chưa nhận SSO.
+  // UNIQUE toàn cục — một mã trỏ đúng một tổ chức, không thì vé SSO không quyết được
+  // nó thuộc về đâu.
+  code String? @unique
+
   // ── Login branding 2026-06-12 — hiển thị ngoài trang /login (PRE-AUTH) ──────
   // Trang đăng nhập đọc 4 trường này qua endpoint công khai /api/v1/public/org-branding
   // thay vì hardcode. logoUrl trỏ ảnh trong kho media (publicUrl) hoặc asset tĩnh
@@ -313,6 +323,20 @@ model User {
   ownedMediaAlbums          MediaAlbum[]                 @relation("MediaAlbumOwner")
   createdMediaAlbums        MediaAlbum[]                 @relation("MediaAlbumCreatedBy")
 
+  // ── F1 (bản phái sinh Sata Robo) — khoá đối chiếu người dùng với hệ Sata ─────
+  // Giá trị = `User.id` bên Sata. Vé SSO mang nó ở claim `sub`.
+  // VÌ SAO KHÔNG DÙNG EMAIL LÀM KHOÁ: email đổi được (nhân viên đổi tên, đổi tên miền)
+  // và có thể trùng giữa hai người ở hai thời điểm. Ghép theo email thì một lần đổi
+  // email bên Sata sẽ đẻ ra tài khoản thứ hai ở đây, hoặc tệ hơn là dính vào hội thoại
+  // của người cũ. `sub` bên Sata là cuid bất biến.
+  // NULLABLE: tài khoản tạo tay trong ZaloCRM (chủ sở hữu, tài khoản kỹ thuật) không
+  // có đối ứng bên Sata và vẫn phải đăng nhập được như thường.
+  externalId String? @map("external_id")
+
+  // Duy nhất TRONG PHẠM VI MỘT TỔ CHỨC, không phải toàn cục: cùng một nhân viên Sata
+  // hoàn toàn có thể có tài khoản ở nhiều org (một người phụ trách hai cơ sở), và mỗi
+  // org là một không gian dữ liệu riêng.
+  @@unique([orgId, externalId])
   @@map("users")
 }
 

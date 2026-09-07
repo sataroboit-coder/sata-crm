@@ -45,7 +45,11 @@ const CSP_DIRECTIVES = [
   "media-src 'self' blob: https:",
   "object-src 'none'",
   "base-uri 'self'",
-  "frame-ancestors 'none'",
+  // F3 (bản phái sinh Sata Robo) — xem `config.frameAncestors`. Danh sách RỖNG thì
+  // giữ nguyên `'none'` của bản gốc, tức không khai env là không nới gì cả.
+  config.frameAncestors.length > 0
+    ? `frame-ancestors ${config.frameAncestors.join(' ')}`
+    : "frame-ancestors 'none'",
   "form-action 'self'",
 ].join('; ');
 
@@ -60,7 +64,14 @@ export function registerSecurityHeaders(app: FastifyInstance): void {
     }
 
     reply.header('X-Content-Type-Options', 'nosniff');
-    reply.header('X-Frame-Options', 'DENY');
+    // F3 — `X-Frame-Options` KHÔNG diễn đạt nổi "cho phép nhiều origin cụ thể": nó chỉ
+    // có DENY / SAMEORIGIN (ALLOW-FROM đã chết ở mọi trình duyệt hiện đại). Khi đã khai
+    // FRAME_ANCESTORS thì BỎ HẲN header này và để CSP `frame-ancestors` quyết — CSP mới
+    // là thứ trình duyệt hiện đại nghe theo, và nó là bộ luật chặt hơn. Giữ cả hai thì
+    // X-Frame-Options thắng ở một số trình duyệt và khung vẫn trắng.
+    if (config.frameAncestors.length === 0) {
+      reply.header('X-Frame-Options', 'DENY');
+    }
     reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
     reply.header('X-Permitted-Cross-Domain-Policies', 'none');
 
