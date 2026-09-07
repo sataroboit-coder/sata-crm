@@ -38,7 +38,16 @@ import { logger } from '../../shared/utils/logger.js';
 import type { JwtPayload } from './auth-service.js';
 
 /** Trần hạn dùng của vé, tính bằng giây. Bên nhận ép, không tin bên ký. */
-export const SSO_MAX_AGE_SECONDS = 60;
+export /**
+ * Giá trị `passwordHash` của tài khoản CHỈ đăng nhập bằng SSO.
+ *
+ * Cố ý KHÔNG phải một chuỗi bcrypt hợp lệ: mọi lần so mật khẩu đều trượt, nên tài khoản
+ * này vào được đúng một đường là vé SSO. Nó cũng là DẤU NHẬN BIẾT để phân biệt "tài
+ * khoản không dùng mật khẩu" với "tài khoản có mật khẩu và đang nợ lần đổi đầu tiên".
+ */
+const HASH_CHI_SSO = '!sso-only-no-password';
+
+const SSO_MAX_AGE_SECONDS = 60;
 
 /** Vai bên Sata → vai trong tổ chức này. Chỉ hai đích; không có đường thành 'owner'. */
 const VAI_HOP_LE = new Set(['admin', 'member']);
@@ -179,7 +188,14 @@ export async function ssoLogin(token: string): Promise<JwtPayload> {
   const user = await runSystemQuery(async () => {
     const dangCo = await prisma.user.findFirst({
       where: { orgId: org.id, externalId: claims.sub },
-      select: { id: true, isActive: true, role: true, fullName: true },
+      select: {
+        id: true,
+        isActive: true,
+        role: true,
+        fullName: true,
+        passwordChangedAt: true,
+        passwordHash: true,
+      },
     });
 
     if (dangCo) {
@@ -192,12 +208,23 @@ export async function ssoLogin(token: string): Promise<JwtPayload> {
       }
       const doiVai = dangCo.role !== claims.role;
       const doiTen = Boolean(claims.fullName) && dangCo.fullName !== claims.fullName;
-      if (doiVai || doiTen) {
+      // `passwordChangedAt = null` nghĩa là "đang nợ lần đổi mật khẩu đầu tiên", và bộ
+      // gác của giao diện đá MỌI đường về /setup-password khi thấy nó. Tài khoản sinh
+      // từ SSO thì KHÔNG BAO GIỜ được giao mật khẩu nào, nên màn đó đòi một thứ không
+      // tồn tại và người dùng kẹt vĩnh viễn — trong khung nhúng thì hiện ra là một
+      // mảng trắng, không một dòng lỗi. Vá cho cả tài khoản CŨ tạo trước bản này.
+      // Điều kiện HẸP có chủ đích: chỉ gỡ cờ cho tài khoản CHỈ-SSO (mang đúng chuỗi
+      // `passwordHash` giả bên dưới). Một tài khoản có mật khẩu thật mà đang nợ lần đổi
+      // đầu tiên thì cờ đó là hàng rào an ninh có thật — vé SSO không được phép hạ nó.
+      const noDoiMatKhau =
+        dangCo.passwordChangedAt === null && dangCo.passwordHash === HASH_CHI_SSO;
+      if (doiVai || doiTen || noDoiMatKhau) {
         await prisma.user.update({
           where: { id: dangCo.id },
           data: {
             ...(doiVai ? { role: claims.role } : {}),
             ...(doiTen ? { fullName: claims.fullName } : {}),
+            ...(noDoiMatKhau ? { passwordChangedAt: new Date() } : {}),
           },
         });
       }
@@ -212,8 +239,13 @@ export async function ssoLogin(token: string): Promise<JwtPayload> {
       externalId: claims.sub,
       fullName: claims.fullName || claims.sub,
       role: claims.role,
-      passwordHash: '!sso-only-no-password',
+      passwordHash: HASH_CHI_SSO,
       isActive: true,
+      // KHÔNG để null: null là cờ "phải đổi mật khẩu lần đầu" và bộ gác giao diện sẽ
+      // nhốt tài khoản này ở /setup-password — một màn đòi "mật khẩu admin giao" mà
+      // tài khoản SSO không hề có. Đặt mốc thời gian tạo = "khoản này không dùng mật
+      // khẩu, không nợ lần đổi nào".
+      passwordChangedAt: new Date(),
     };
 
     // ⚠️ `User.email` là DUY NHẤT TOÀN CỤC ở lược đồ này, không phải duy nhất trong một

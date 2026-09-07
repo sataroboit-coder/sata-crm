@@ -22,7 +22,7 @@ bốn việc dưới đây phải xong:
 | L1 | Đưa toàn bộ mã bản phái sinh lên một repo **công khai**, và đường dẫn đó phải tới được từ chính ứng dụng | ✅ xong — <https://github.com/sataroboit-coder/sata-crm> |
 | L2 | Khôi phục link “Mã nguồn” ở màn đăng nhập | ✅ xong — trỏ repo công khai ở trên |
 | L3 | **Giữ nguyên** banner ghi công tác giả và module `use-attribution.ts` — muốn gỡ thì phải mua giấy phép thương mại | ✅ chưa đụng tới |
-| L4 | Đổi tên sản phẩm thành **“Sata CRM”** (NOTICE §7(e)) | ✅ xong — tiêu đề tab + màn đăng nhập + trang lịch hẹn |
+| L4 | Đổi tên sản phẩm thành **“Sata CRM”** (NOTICE §7(e)) | ✅ xong — tiêu đề tab (`index.html` + `BRAND` trong router), màn đăng nhập, trang lịch hẹn, `manifest.json`, cảnh báo trong trình gắn nick |
 
 **Tên sản phẩm: “Sata CRM”** (chủ dự án chốt 07/09/2026).
 
@@ -69,6 +69,33 @@ mở-có-chủ-đích, không phải nới mặc định.
 | `frontend/src/router/index.ts` | thêm route `/sso` (`public: true`) |
 
 **Không khai `SATA_SSO_SECRET` ⇒ endpoint trả 404**, tức tính năng coi như không tồn tại.
+
+#### Bốn lỗi của lượt chạy thử đầu tiên (07/09/2026) — đọc trước khi sửa lại chỗ này
+
+Cả bốn đều cho ra CÙNG một triệu chứng: khung nhúng trắng trơn, không một dòng lỗi nào.
+
+1. **`passwordChangedAt = null` nhốt tài khoản SSO ở màn đổi mật khẩu.** Bộ gác giao diện
+   coi `null` là "còn nợ lần đổi mật khẩu đầu", mà tài khoản sinh từ vé SSO thì KHÔNG hề
+   được giao mật khẩu nào — màn ấy đòi một thứ không tồn tại. Nay đặt mốc thời gian lúc
+   tạo, và vá luôn cho tài khoản cũ (điều kiện hẹp: chỉ tài khoản mang đúng
+   `passwordHash = HASH_CHI_SSO`, để không hạ hàng rào của tài khoản có mật khẩu thật).
+2. **`/auth/sso` không nằm trong `isAuthEndpoint`.** 401 ở đây bị hiểu là "access token
+   hết hạn" ⇒ bộ chặn đi xoay refresh token, thử lại, vẫn 401, rồi `clearAuthAndRedirect()`
+   **xoá token của phiên vừa mở**. Nay `/auth/sso` được kể vào danh sách, và nhánh 401
+   cuối cũng không xoá token cho riêng đường này.
+3. **`/sso` không nằm trong `PUBLIC_PREFIXES`.** Lúc ứng dụng khởi động, `router.currentRoute`
+   còn rỗng nên `meta.public` chưa có; chỉ `window.location.pathname` mới nói được đây là
+   trang công khai. Thiếu nó thì một vé hỏng đá thẳng về /login, màn `/sso` không kịp hiện lỗi.
+   (Bản gốc đã dựng sẵn cơ chế này cho `/appointments/action` — chỉ là chưa khai `/sso` vào.)
+4. **`onMounted` của `SsoView` chạy hai lượt** (layout đổi lúc khởi động ⇒ `App.vue` dựng lại
+   cả cây con), nên vé bị gửi đi hai lần và lượt sau ăn `TICKET_REPLAYED`. Nay nhớ theo
+   PROMISE để lượt hai chờ kết quả lượt một thay vì gửi lại.
+
+Và một điều chỉnh về trải nghiệm, không phải lỗi: **vé đã dùng + phiên đã có ⇒ đi tiếp**,
+không dựng màn lỗi. Khung nhúng tải lại là chuyện thường (trình duyệt khôi phục tab, người
+bấm F5 trong khung), lúc đó `src` vẫn mang vé cũ. Chỉ nới cho đúng mã `TICKET_REPLAYED` —
+`jti` sống 60 giây nên "đã dùng" nghĩa là chính vé đó vừa mở ra phiên đang nằm trong trình
+duyệt này; vé HẾT HẠN thì không nói được điều đó nên vẫn bị từ chối.
 
 Bốn lớp kiểm của vé, mỗi lớp chặn một kiểu tấn công:
 

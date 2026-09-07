@@ -36,6 +36,21 @@ const router = useRouter();
 const auth = useAuthStore();
 const loi = ref('');
 
+/**
+ * MỘT vé chỉ được đổi ĐÚNG MỘT LẦN, dù component có mount lại mấy lần.
+ *
+ * `App.vue` dựng layout bằng `<component :is="layout">`; khi biểu thức layout đổi giá
+ * trị (lúc khởi động, `use-mobile` chưa đo xong) thì cả cây con — kể cả màn đang mở —
+ * bị huỷ rồi dựng lại, nên `onMounted` chạy hai lượt. Không có bộ nhớ này thì lượt hai
+ * gửi lại đúng cái vé đã dùng, máy chủ trả 401 `TICKET_REPLAYED`, và bộ chặn 401 của
+ * `api/index.ts` XOÁ token mà lượt một vừa cấp — phiên tự chết, người dùng văng về
+ * /login. Đã đo được đúng chuỗi này ngày 07/09/2026.
+ *
+ * Nhớ theo PROMISE chứ không phải theo cờ boolean: lượt hai phải CHỜ kết quả của lượt
+ * một rồi mới điều hướng, chứ không được đi tiếp lúc phiên chưa mở xong.
+ */
+const veDangDoi = new Map<string, Promise<void>>();
+
 /** Chỉ nhận đường dẫn NỘI BỘ. Chặn `next` trỏ ra ngoài (mở chuyển hướng). */
 function duongDanAnToan(raw: string | null): string {
   if (!raw) return '/';
@@ -57,9 +72,33 @@ onMounted(async () => {
   }
 
   try {
-    await auth.ssoLogin(ticket);
+    let dangDoi = veDangDoi.get(ticket);
+    if (!dangDoi) {
+      dangDoi = auth.ssoLogin(ticket);
+      veDangDoi.set(ticket, dangDoi);
+    }
+    await dangDoi;
   } catch (err: unknown) {
-    const res = (err as { response?: { data?: { error?: string } } })?.response;
+    const res = (err as { response?: { data?: { error?: string; code?: string } } })?.response;
+
+    // VÉ ĐÃ DÙNG + PHIÊN ĐÃ CÓ ⇒ ĐI TIẾP, KHÔNG DỰNG MÀN LỖI.
+    //
+    // Khung nhúng tải lại là chuyện thường (trình duyệt khôi phục tab, công cụ chụp
+    // màn, người bấm F5 trong khung): thuộc tính `src` vẫn mang vé cũ, nên lượt tải
+    // sau chắc chắn ăn `TICKET_REPLAYED`. Trước bản vá này, người dùng đang làm việc
+    // bình thường bỗng thấy "Vé đăng nhập đã được dùng" giữa màn — trong khi phiên
+    // của họ vẫn còn nguyên và vẫn dùng được.
+    //
+    // Chỉ nới cho ĐÚNG mã `TICKET_REPLAYED`, KHÔNG nới cho vé sai chữ ký hay hết hạn:
+    // `jti` chỉ sống 60 giây, nên "đã dùng" có nghĩa là chính vé này vừa mở ra cái
+    // phiên đang nằm trong trình duyệt này. Vé hết hạn thì không nói được điều đó —
+    // nó có thể là vé của người khác, và rơi vào phiên cũ còn sót lại của máy dùng chung.
+    if (res?.data?.code === 'TICKET_REPLAYED' && auth.token) {
+      window.history.replaceState(null, '', window.location.pathname);
+      await router.replace(next);
+      return;
+    }
+
     loi.value = res?.data?.error || 'Không mở được phiên làm việc.';
     return;
   }

@@ -332,8 +332,10 @@ router.beforeEach(async (to, _from, next) => {
 // ── Tiêu đề tab trình duyệt theo màn hình (2026-06-16) ─────────────────────────
 // Map route.name → tên màn hình hiển thị trên tab Chrome. Gom 1 chỗ cho dễ bảo
 // trì (khỏi rải meta.title khắp ~70 route). Route không có trong map → chỉ hiện
-// brand. Title dạng "Tên màn hình · ZaloCRM".
-const BRAND = 'ZaloCRM';
+// brand. Title dạng "Tên màn hình · Sata CRM".
+// Bản phái sinh Sata đổi tên sản phẩm theo NOTICE §7(e) — ghi công tác giả vẫn giữ
+// nguyên ở màn đăng nhập và ở banner `use-attribution.ts`.
+const BRAND = 'Sata CRM';
 const ROUTE_TITLES: Record<string, string> = {
   // Top-level
   Login: 'Đăng nhập',

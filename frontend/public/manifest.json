@@ -1,6 +1,6 @@
 {
-  "name": "ZaloCRM",
-  "short_name": "ZaloCRM",
+  "name": "Sata CRM",
+  "short_name": "Sata CRM",
   "description": "Quản lý nhiều tài khoản Zalo cá nhân",
   "start_url": "/",
   "display": "standalone",

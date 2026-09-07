@@ -55,7 +55,12 @@ export function clearAuthAndRedirect() {
   // Dùng window.location.pathname làm nguồn xác thực: lúc boot, layout 'default' (có
   // NotificationBell) render NHÁY trước khi router resolve meta.public → /notifications 401
   // → redirect oan. pathname có ngay từ đầu nên chặn được race này.
-  const PUBLIC_PREFIXES = ['/appointments/action'];
+  // `/sso` (bản phái sinh Sata) nằm đây vì ĐÚNG lý do đã ghi ở trên: lúc boot,
+  // `router.currentRoute` còn là vị trí khởi đầu rỗng, `meta.public` chưa có, nên chỉ
+  // `window.location.pathname` mới nói được đây là trang công khai. Thiếu dòng này thì
+  // một cái vé hỏng đá thẳng người dùng về /login và màn `/sso` không kịp hiện lỗi —
+  // người vận hành mất luôn manh mối để biết vé sai ở đâu.
+  const PUBLIC_PREFIXES = ['/appointments/action', '/sso'];
   const livePath = (typeof window !== 'undefined' && window.location?.pathname) || current.path;
   if (current.meta?.public || PUBLIC_PREFIXES.some((p) => livePath.startsWith(p))) return;
   if (current.path !== '/login' && current.path !== '/setup') {
@@ -128,7 +133,16 @@ export async function ensureFreshToken(): Promise<string> {
 }
 
 function isAuthEndpoint(url: string): boolean {
-  return url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/setup');
+  // `/auth/sso` (bản phái sinh Sata) NẰM TRONG danh sách này có chủ đích: 401 ở đây
+  // nghĩa là "vé SSO hỏng/đã dùng", KHÔNG phải "access token hết hạn". Để nó rơi vào
+  // nhánh xoay-refresh thì một vé đã dùng lại đi xoay refresh token rồi thử lại, vẫn
+  // 401, và kết cục là `clearAuthAndRedirect()` xoá token của phiên ĐANG CHẠY.
+  return (
+    url.includes('/auth/login') ||
+    url.includes('/auth/refresh') ||
+    url.includes('/auth/sso') ||
+    url.includes('/setup')
+  );
 }
 
 // Response interceptor — global handle 401(refresh)/404/5xx
@@ -161,7 +175,10 @@ api.interceptors.response.use(
     }
 
     if (status === 401) {
-      clearAuthAndRedirect();
+      // Ngoại lệ bản phái sinh Sata: vé SSO hỏng KHÔNG được kéo theo phiên đang chạy.
+      // Người dùng có thể đã đăng nhập hợp lệ ở tab này rồi; một cái vé quá 60 giây
+      // không phải là bằng chứng phiên ấy hết hiệu lực. Màn `/sso` tự hiện lỗi.
+      if (!url.includes('/auth/sso')) clearAuthAndRedirect();
     } else if (status === 403) {
       // RBAC enforce 2026-06-08 — backend từ chối quyền. Toast, KHÔNG redirect
       // (403 có thể đến từ 1 widget phụ, không nên giật cả trang).

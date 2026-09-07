@@ -137,7 +137,7 @@
             <div class="cnw-remind">
               <v-icon size="18" color="#b45309">mdi-alert</v-icon>
               <div>
-                <b>Lưu ý quan trọng:</b> Nick này đã đăng nhập vào Zalo CRM. <b>KHÔNG</b> dùng
+                <b>Lưu ý quan trọng:</b> Nick này đã đăng nhập vào Sata CRM. <b>KHÔNG</b> dùng
                 Zalo Web (chat.zalo.me) để đăng nhập/quét nick này nữa — sẽ làm <b>văng phiên</b>
                 và nick bị <b>mất kết nối</b> khỏi CRM.
               </div>
