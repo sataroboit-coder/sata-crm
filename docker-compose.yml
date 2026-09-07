@@ -9,6 +9,7 @@ services:
       # Vite nướng vào lúc build nên phải là build arg, không phải biến lúc chạy.
       args:
         VITE_SATA_ORIGIN: "${VITE_SATA_ORIGIN:-}"
+        VITE_SOURCE_URL: "${VITE_SOURCE_URL:-}"
     container_name: zalo-crm-app
     restart: unless-stopped
     ports:

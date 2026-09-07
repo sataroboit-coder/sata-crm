@@ -60,16 +60,22 @@
         </v-alert>
 
         <!--
-          AGPL-3.0 §13: cung cấp mã nguồn cho người dùng tương tác qua mạng.
-          TẠM ẨN 2026-06-23 (chưa chốt giấy phép sau khi tách khỏi repo locphamnguyen/ZaloCRM).
-          Bỏ comment khối <p> bên dưới để hiển thị lại; nhớ đổi link sang repo PUBLIC đúng trước khi bật.
-        <p class="agpl-source text-center text-caption mt-6">
-          ZaloCRM — phần mềm tự do
-          <a href="https://github.com/locphamnguyen/ZaloCRM" target="_blank" rel="noopener noreferrer">AGPL-3.0</a>
-          · <a href="https://github.com/locphamnguyen/ZaloCRM" target="_blank" rel="noopener noreferrer">Mã nguồn</a>
-        </p>
+          F6 (bản phái sinh Sata Robo) — KHÔI PHỤC khối này.
+          AGPL-3.0 §13 buộc cung cấp mã nguồn cho người dùng tương tác QUA MẠNG.
+          Bản gốc tạm ẩn vì chưa chốt giấy phép; bản phái sinh này ĐÃ SỬA MÃ nên
+          nghĩa vụ đó là bắt buộc, không phải tuỳ chọn.
+          🔴 Link "Mã nguồn" phải trỏ repo CÔNG KHAI của CHÍNH bản đang chạy —
+          trỏ về repo gốc là chưa tròn nghĩa vụ, vì mã đang chạy đã khác nó.
         -->
-        <!-- AGPL notice tạm ẩn — xem khối comment phía trên -->
+        <p class="agpl-source text-center text-caption mt-6">
+          Sata CRM — phần mềm tự do
+          <a :href="LINK_GIAY_PHEP" target="_blank" rel="noopener noreferrer">AGPL-3.0</a>
+          · <a :href="LINK_MA_NGUON" target="_blank" rel="noopener noreferrer">Mã nguồn</a>
+          <br />
+          <span class="agpl-origin">
+            Phát triển từ ZaloCRM của Nguyễn Tiến Lộc
+          </span>
+        </p>
       </div>
     </section>
   </div>
@@ -151,6 +157,16 @@ async function handleLogin() {
     loading.value = false;
   }
 }
+
+// ── F6 (bản phái sinh Sata Robo) — nghĩa vụ AGPL §13 ────────────────────────
+// Link "Mã nguồn" phải trỏ repo CÔNG KHAI của CHÍNH bản đang chạy. Khai bằng biến
+// môi trường để mỗi nơi triển khai tự trỏ đúng bản của mình; chưa khai thì rơi về
+// repo gốc — TẠM ĐỦ để không mất dấu, nhưng CHƯA TRÒN nghĩa vụ vì mã đang chạy đã
+// khác bản gốc. Khai `VITE_SOURCE_URL` trước ngày mở cho nhân viên dùng thật.
+const LINK_MA_NGUON =
+  (import.meta.env.VITE_SOURCE_URL as string | undefined)?.trim() ||
+  'https://github.com/locphamnguyen/ZaloCRM';
+const LINK_GIAY_PHEP = 'https://www.gnu.org/licenses/agpl-3.0.html';
 </script>
 
 <style scoped>
@@ -207,4 +223,11 @@ async function handleLogin() {
 .login-card :deep(.v-field__input),
 .login-card :deep(input) { color: #0e445a; }
 .login-card :deep(.v-field__input::placeholder) { color: #94a3b0; opacity: 1; }
+
+.agpl-origin {
+  display: block;
+  margin-top: 2px;
+  opacity: 0.75;
+  font-size: 11px;
+}
 </style>

@@ -19,12 +19,20 @@ bốn việc dưới đây phải xong:
 
 | # | Việc | Trạng thái |
 |---|---|---|
-| L1 | Đưa toàn bộ mã bản phái sinh lên một repo **công khai**, và đường dẫn đó phải tới được từ chính ứng dụng | ❌ chưa |
-| L2 | Khôi phục link “Mã nguồn” ở màn đăng nhập, trỏ về repo công khai của bản phái sinh (bản gốc đã comment khối này lại) | ❌ chưa |
+| L1 | Đưa toàn bộ mã bản phái sinh lên một repo **công khai**, và đường dẫn đó phải tới được từ chính ứng dụng | ❌ chưa — **việc duy nhất còn lại** |
+| L2 | Khôi phục link “Mã nguồn” ở màn đăng nhập | ✅ xong — đọc `VITE_SOURCE_URL`; **chưa khai thì rơi về repo gốc, tức chưa tròn nghĩa vụ** |
 | L3 | **Giữ nguyên** banner ghi công tác giả và module `use-attribution.ts` — muốn gỡ thì phải mua giấy phép thương mại | ✅ chưa đụng tới |
-| L4 | Đổi tên và logo sản phẩm (NOTICE §7(e): tên “ZaloCRM” và logo không dùng cho bản phái sinh) | ❌ chưa — **đang chờ chủ dự án chốt tên** |
+| L4 | Đổi tên sản phẩm thành **“Sata CRM”** (NOTICE §7(e)) | ✅ xong — tiêu đề tab + màn đăng nhập + trang lịch hẹn |
 
-L4 chặn L1: chưa có tên thì chưa đặt được tên repo công khai.
+**Tên sản phẩm: “Sata CRM”** (chủ dự án chốt 07/09/2026).
+
+Còn đúng **L1**. Hai bước để đóng nốt:
+1. Tạo repo **công khai** (ví dụ `satarobo/sata-crm`), đẩy nhánh `feat/sata-sso` lên.
+2. Build lại kèm `VITE_SOURCE_URL=<địa chỉ repo đó>` để link “Mã nguồn” ở màn đăng nhập
+   trỏ đúng bản đang chạy.
+
+⚠️ Cho tới lúc đó, link “Mã nguồn” trỏ về repo GỐC. Không mất dấu, nhưng **chưa tròn**
+nghĩa vụ §13 vì mã đang chạy đã khác bản gốc.
 
 ---
 

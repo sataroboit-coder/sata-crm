@@ -8,7 +8,7 @@
 <template>
   <div class="aa-wrap">
     <div class="aa-card">
-      <div class="aa-brand"><span class="aa-logo">HS</span> ZaloCRM</div>
+      <div class="aa-brand"><span class="aa-logo">HS</span> Sata CRM</div>
 
       <div v-if="loading" class="aa-state">Đang tải lịch hẹn…</div>
 

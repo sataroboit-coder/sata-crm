@@ -9,6 +9,10 @@ COPY frontend/ ./
 # đây làm build arg. Để trống thì nút "Tạo lead Sata" tự ẩn (xem ChatContactPanel.vue).
 ARG VITE_SATA_ORIGIN=""
 ENV VITE_SATA_ORIGIN=$VITE_SATA_ORIGIN
+# F6 — link "Mã nguồn" ở màn đăng nhập (AGPL §13). Phải trỏ repo CÔNG KHAI của
+# CHÍNH bản đang chạy. Để trống thì rơi về repo gốc — chưa tròn nghĩa vụ.
+ARG VITE_SOURCE_URL=""
+ENV VITE_SOURCE_URL=$VITE_SOURCE_URL
 RUN npm run build
 
 # ── Stage 2: Build backend ───────────────────────────────────────────────────
