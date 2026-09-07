@@ -19,20 +19,23 @@ bốn việc dưới đây phải xong:
 
 | # | Việc | Trạng thái |
 |---|---|---|
-| L1 | Đưa toàn bộ mã bản phái sinh lên một repo **công khai**, và đường dẫn đó phải tới được từ chính ứng dụng | ❌ chưa — **việc duy nhất còn lại** |
-| L2 | Khôi phục link “Mã nguồn” ở màn đăng nhập | ✅ xong — đọc `VITE_SOURCE_URL`; **chưa khai thì rơi về repo gốc, tức chưa tròn nghĩa vụ** |
+| L1 | Đưa toàn bộ mã bản phái sinh lên một repo **công khai**, và đường dẫn đó phải tới được từ chính ứng dụng | ✅ xong — <https://github.com/sataroboit-coder/sata-crm> |
+| L2 | Khôi phục link “Mã nguồn” ở màn đăng nhập | ✅ xong — trỏ repo công khai ở trên |
 | L3 | **Giữ nguyên** banner ghi công tác giả và module `use-attribution.ts` — muốn gỡ thì phải mua giấy phép thương mại | ✅ chưa đụng tới |
 | L4 | Đổi tên sản phẩm thành **“Sata CRM”** (NOTICE §7(e)) | ✅ xong — tiêu đề tab + màn đăng nhập + trang lịch hẹn |
 
 **Tên sản phẩm: “Sata CRM”** (chủ dự án chốt 07/09/2026).
 
-Còn đúng **L1**. Hai bước để đóng nốt:
-1. Tạo repo **công khai** (ví dụ `satarobo/sata-crm`), đẩy nhánh `feat/sata-sso` lên.
-2. Build lại kèm `VITE_SOURCE_URL=<địa chỉ repo đó>` để link “Mã nguồn” ở màn đăng nhập
-   trỏ đúng bản đang chạy.
+✅ **Bốn nghĩa vụ đã đóng đủ (07/09/2026).** Mã bản phái sinh công khai tại
+<https://github.com/sataroboit-coder/sata-crm>, nhánh `feat/sata-sso`; link “Mã nguồn” ở
+màn đăng nhập trỏ đúng repo đó.
 
-⚠️ Cho tới lúc đó, link “Mã nguồn” trỏ về repo GỐC. Không mất dấu, nhưng **chưa tròn**
-nghĩa vụ §13 vì mã đang chạy đã khác bản gốc.
+⚠️ **Nghĩa vụ này là LIÊN TỤC, không phải làm một lần.** Mỗi lần sửa thêm mã rồi đưa lên
+máy chủ cho nhân viên dùng, bản công khai phải được cập nhật theo. Đẩy lên trước, triển
+khai sau — đừng để bản đang chạy mới hơn bản công khai.
+
+Repo giữ hai remote có chủ đích: `origin` = bản phái sinh công khai, `upstream` = repo gốc
+của tác giả (để kéo bản cập nhật theo quý như kế hoạch §7.2).
 
 ---
 
