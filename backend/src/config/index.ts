@@ -145,6 +145,20 @@ export const config = {
     return v === 'enforce' || v === 'off' ? v : 'report-only';
   })() as 'report-only' | 'enforce' | 'off',
 
+  // ── F7 (bản phái sinh Sata Robo) — công tắc CỨNG cho mọi tính năng AI ───────
+  // 🔴 ĐÂY LÀ CHỖ CỐ Ý KHÁC BẢN GỐC VỀ MẶC ĐỊNH. Bản gốc bật AI cho mọi tổ chức
+  // vừa lập (`getAiConfig` tạo sẵn `enabled: true`). Bản phái sinh này mặc định TẮT,
+  // phải khai `AI_FEATURES_ENABLED=1` mới bật được.
+  //
+  // Vì sao đảo mặc định: dữ liệu ở đây là chat của phụ huynh — tên trẻ, số điện thoại,
+  // hoàn cảnh gia đình. Bật AI là đẩy nguyên văn những thứ đó sang một nhà cung cấp
+  // nước ngoài. Việc đó phải là quyết định có người chịu trách nhiệm, không phải hệ
+  // quả của một cú bấm nhầm trong màn cấu hình.
+  //
+  // Công tắc này ĐÈ LÊN cả bản ghi `AiConfig` trong DB (xem `getAiConfig`), nên một
+  // tổ chức đã trót bật vẫn bị khoá lại khi tắt công tắc.
+  aiFeaturesEnabled: envValue('AI_FEATURES_ENABLED') === '1',
+
   // ── F2 (bản phái sinh Sata Robo) — lối thoát bộ gác SSRF, CHỈ cho máy lẻ ────
   // Bộ gác chặn loopback/mạng nội bộ, và đúng như vậy trên máy chủ thật. Nhưng khi
   // dựng thử trên một máy, site quản trị nằm ở `localhost` nên không thử được gì.

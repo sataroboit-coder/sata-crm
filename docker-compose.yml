@@ -5,6 +5,10 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      # F5 (bản phái sinh Sata Robo) — origin của site quản trị bọc khung nhúng.
+      # Vite nướng vào lúc build nên phải là build arg, không phải biến lúc chạy.
+      args:
+        VITE_SATA_ORIGIN: "${VITE_SATA_ORIGIN:-}"
     container_name: zalo-crm-app
     restart: unless-stopped
     ports:

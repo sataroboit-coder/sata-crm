@@ -29,6 +29,15 @@
               @updated="onDealStageUpdatedPanel"
             />
           </div>
+          <!-- ── F5 (bản phái sinh Sata Robo) — bắc cầu sang phiếu khách của Sata ──
+               CHỈ hiện khi màn này đang nằm trong khung nhúng của site quản trị Sata
+               (`window.parent !== window`). Chạy độc lập thì nút vô nghĩa, nên ẩn hẳn.
+               Cũng cần có SĐT: phiếu khách bên Sata lấy số làm khoá nhận diện. -->
+          <div v-if="hienNutSata" class="ip-care-row-inline">
+            <button class="sata-lead-btn" title="Mở form nhập khách của Sata Robo, điền sẵn tên và số điện thoại" @click="taoLeadSata">
+              + Tạo lead Sata
+            </button>
+          </div>
         </template>
       </ScoreBanner>
     </header>
@@ -1270,6 +1279,41 @@ async function onRegenerateHandoff() {
     handoffLoading.value = false;
   }
 }
+
+// ── F5 (bản phái sinh Sata Robo) — bắc cầu sang phiếu khách của Sata Robo ─────
+//
+// Màn chat này được nhúng trong site quản trị Sata. Khi Sale đang nói chuyện với một
+// khách CHƯA có phiếu, họ phải tự nhớ số rồi sang tab khác gõ lại — và đó chính là
+// lúc hội thoại rơi vào nhóm mồ côi vì chẳng ai nối tay.
+//
+// Nút này KHÔNG tự tạo phiếu. Nó mở form nhập khách bên Sata với tên và số điền sẵn,
+// còn người mới là người bấm Lưu. Đó là chốt của chủ dự án (câu 9.3 và 9.5): số cạo
+// từ hồ sơ Zalo chỉ được GỢI Ý, không được tự thành phiếu.
+
+/** Origin của site Sata — khung cha. Khai bằng biến môi trường lúc build. */
+const NGUON_GOC_SATA = (import.meta.env.VITE_SATA_ORIGIN as string | undefined)?.trim() || '';
+
+/** Đang chạy trong khung nhúng? Chạy độc lập thì nút vô nghĩa. */
+const dangTrongKhung = typeof window !== 'undefined' && window.parent !== window;
+
+const hienNutSata = computed(
+  () => dangTrongKhung && Boolean(NGUON_GOC_SATA) && Boolean(props.contact?.phone),
+);
+
+function taoLeadSata() {
+  if (!hienNutSata.value) return;
+  // 🔴 Gửi ĐÍCH DANH origin của Sata, KHÔNG dùng '*'. Dùng '*' là bất kỳ trang nào
+  // bọc được khung này cũng đọc trộm được tên và số điện thoại của khách.
+  window.parent.postMessage(
+    {
+      type: 'sata:create-lead',
+      phone: props.contact?.phone ?? '',
+      name: headerFullName.value ?? '',
+      contactId: props.contact?.id ?? '',
+    },
+    NGUON_GOC_SATA,
+  );
+}
 </script>
 
 <style scoped>
@@ -2256,4 +2300,18 @@ async function onRegenerateHandoff() {
   font-weight: 600;
 }
 .mtp-link:hover { background: #0050cc; }
+
+/* F5 (bản phái sinh Sata Robo) — nút bắc cầu sang phiếu khách của Sata. */
+.sata-lead-btn {
+  border: 1px solid #c2410c;
+  background: #fff7ed;
+  color: #c2410c;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sata-lead-btn:hover { background: #ffedd5; }
 </style>

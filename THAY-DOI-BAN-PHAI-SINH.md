@@ -104,10 +104,45 @@ người trong tổ chức dò mạng nội bộ qua ô địa chỉ webhook.
 
 ---
 
+### F5 — nút "Tạo lead Sata" trong màn chat
+
+| Tệp | Sửa |
+|---|---|
+| `frontend/src/components/chat/ChatContactPanel.vue` | nút + `postMessage({type:'sata:create-lead', phone, name, contactId})` |
+| `docker/Dockerfile` · `docker-compose.yml` | build arg `VITE_SATA_ORIGIN` (Vite nướng biến lúc BUILD, khai trong `.env` thôi thì không tới được mã đã build) |
+
+Nút **KHÔNG tự tạo phiếu** — nó mở form nhập khách bên Sata với tên và số điền sẵn, người
+mới là người bấm Lưu. Đúng chốt 9.3 và 9.5: số cạo từ hồ sơ Zalo chỉ được **gợi ý**.
+
+Nút tự ẩn khi: không chạy trong khung nhúng · chưa khai `VITE_SATA_ORIGIN` · liên hệ chưa có SĐT.
+
+🔴 `postMessage` gửi **đích danh origin của Sata, không dùng `'*'`** — dùng `'*'` là bất kỳ
+trang nào bọc được khung này cũng đọc trộm được tên và số điện thoại của khách.
+
+Vế **"Mở lead"** (`sata:open-lead`) chưa làm: nó cần `Contact.externalRef`, mà đường ghi
+trường đó nằm ở F4 (giai đoạn 3).
+
+### F7 — khoá cứng tính năng AI
+
+| Tệp | Sửa |
+|---|---|
+| `backend/src/config/index.ts` | thêm `aiFeaturesEnabled` đọc từ env `AI_FEATURES_ENABLED` |
+| `backend/src/modules/ai/ai-service.ts` | `getAiConfig` **đè** `enabled` theo công tắc; `updateAiConfig` ném 403 khi cố bật lúc công tắc tắt |
+
+🔴 **ĐÂY LÀ CHỖ CỐ Ý KHÁC BẢN GỐC VỀ MẶC ĐỊNH.** Bản gốc bật AI cho mọi tổ chức vừa lập
+(`getAiConfig` tạo sẵn `enabled: true`). Bản phái sinh **mặc định TẮT**, phải khai
+`AI_FEATURES_ENABLED=1` mới bật được.
+
+Vì sao đảo mặc định: dữ liệu ở đây là chat của phụ huynh — tên trẻ, số điện thoại, hoàn cảnh
+gia đình. Bật AI là đẩy nguyên văn những thứ đó sang một nhà cung cấp nước ngoài. Việc đó phải
+là quyết định có người chịu trách nhiệm, không phải hệ quả của một cú bấm nhầm.
+
+Công tắc **đè lên cả bản ghi `AiConfig` trong DB**, nên một tổ chức đã trót bật vẫn bị khoá
+lại — đè ở `getAiConfig` là bịt cả ba chỗ gọi AI bằng một dòng.
+
+---
+
 ## Chưa làm (các việc còn lại của kế hoạch tích hợp)
 
-- **F4** — mở rộng Public API (giai đoạn 3).
-- **F5** — nút “Tạo lead Sata” trong màn chat.
-- **F6** — nghĩa vụ giấy phép (bảng ở trên).
-- **F7** — khoá cứng tính năng AI bằng biến môi trường. Hiện mọi khoá AI để trống nên không
-  có gì gọi ra ngoài, nhưng đó là *chưa cấu hình*, không phải *đã khoá*.
+- **F4** — mở rộng Public API (giai đoạn 3). Kéo theo vế "Mở lead" của F5.
+- **F6** — nghĩa vụ giấy phép (bảng ở đầu tài liệu). **Chặn ở việc chốt tên sản phẩm.**

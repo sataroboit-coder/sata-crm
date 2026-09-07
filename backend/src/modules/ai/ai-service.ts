@@ -47,14 +47,44 @@ export async function getAiConfig(orgId: string) {
   let aiConfig = await prisma.aiConfig.findUnique({ where: { orgId } });
   if (!aiConfig) {
     aiConfig = await prisma.aiConfig.create({
-      data: { orgId, provider: config.aiDefaultProvider, model: config.aiDefaultModel, maxDaily: 500, enabled: true },
+      // F7 (bản phái sinh Sata Robo) — bản gốc tạo sẵn `enabled: true`, tức tổ chức
+      // nào vừa lập là AI đã bật. Ở đây mặc định theo công tắc môi trường.
+      data: {
+        orgId,
+        provider: config.aiDefaultProvider,
+        model: config.aiDefaultModel,
+        maxDaily: 500,
+        enabled: config.aiFeaturesEnabled,
+      },
     });
   }
   const availableProviders = await getAvailableProviders(orgId);
-  return { ...aiConfig, availableProviders };
+
+  // ── F7 — KHOÁ CỨNG, đè lên cả bản ghi trong DB ────────────────────────────
+  // Vì sao phải đè ở ĐÂY chứ không chỉ đặt mặc định lúc tạo: bản ghi `AiConfig` có
+  // thể đã mang `enabled: true` từ trước (tổ chức lập trước bản vá, hoặc ai đó đã bật
+  // rồi mới tắt công tắc môi trường). Ba chỗ gọi AI đều đọc `.enabled` từ hàm này, nên
+  // đè tại nguồn là bịt cả ba bằng một dòng.
+  //
+  // Điều đang bảo vệ: nội dung chat của phụ huynh — tên trẻ, số điện thoại, hoàn cảnh
+  // gia đình. Bật AI là đẩy nguyên văn những thứ đó sang một nhà cung cấp nước ngoài.
+  // Việc đó phải là một quyết định có người chịu trách nhiệm, không phải hệ quả của
+  // một cú bấm nhầm trong màn cấu hình.
+  return { ...aiConfig, enabled: aiConfig.enabled && config.aiFeaturesEnabled, availableProviders };
 }
 
 export async function updateAiConfig(orgId: string, input: { provider?: string; model?: string; maxDaily?: number; enabled?: boolean }) {
+  // F7 (bản phái sinh Sata Robo) — công tắc môi trường tắt thì màn cấu hình KHÔNG bật
+  // được AI. Ném thay vì lặng lẽ ghi `false`: người vừa bấm "Bật" phải thấy vì sao nó
+  // không bật, chứ không phải bấm xong tưởng xong rồi ngồi đợi một tính năng không chạy.
+  if (input.enabled === true && !config.aiFeaturesEnabled) {
+    const err = new Error(
+      'Tính năng AI đang bị khoá ở mức máy chủ (AI_FEATURES_ENABLED). Liên hệ người vận hành.',
+    ) as Error & { statusCode: number };
+    err.statusCode = 403;
+    throw err;
+  }
+
   return prisma.aiConfig.upsert({
     where: { orgId },
     create: {
@@ -62,7 +92,8 @@ export async function updateAiConfig(orgId: string, input: { provider?: string; 
       provider: input.provider || config.aiDefaultProvider,
       model: input.model || config.aiDefaultModel,
       maxDaily: input.maxDaily ?? 500,
-      enabled: input.enabled ?? true,
+      // Bản gốc mặc định `true`; ở đây theo công tắc môi trường.
+      enabled: input.enabled ?? config.aiFeaturesEnabled,
     },
     update: {
       provider: input.provider,

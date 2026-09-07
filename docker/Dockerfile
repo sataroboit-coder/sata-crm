@@ -4,6 +4,11 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY frontend/ ./
+# F5 (bản phái sinh Sata Robo) — Vite NƯỚNG biến môi trường vào lúc BUILD, không đọc
+# lúc chạy. Khai trong .env thôi là không tới được mã đã build, nên phải truyền vào
+# đây làm build arg. Để trống thì nút "Tạo lead Sata" tự ẩn (xem ChatContactPanel.vue).
+ARG VITE_SATA_ORIGIN=""
+ENV VITE_SATA_ORIGIN=$VITE_SATA_ORIGIN
 RUN npm run build
 
 # ── Stage 2: Build backend ───────────────────────────────────────────────────
