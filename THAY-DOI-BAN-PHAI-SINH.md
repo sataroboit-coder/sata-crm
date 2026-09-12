@@ -125,6 +125,7 @@ SSO mở lại · tài khoản sinh từ SSO mang `passwordHash` không phải b
 | `backend/src/modules/contacts/contact-routes.ts` | thêm sự kiện `contact.phone_set` |
 | `backend/src/app.ts` | bật người thử lại lúc khởi động |
 | `backend/src/config/index.ts` | thêm `webhookAllowLoopback` |
+| `backend/src/modules/zalo/zalo-routes.ts` | `GET /api/v1/zalo-accounts` trả thêm `owner.externalId` |
 
 Ba điều đáng nhớ:
 
@@ -136,6 +137,12 @@ Ba điều đáng nhớ:
 3. **Tin Sale gõ trong giao diện ZaloCRM trước đây KHÔNG báo ra ngoài** — nhánh chống echo
    `return null` trước chỗ bắn webhook. Bên nhận vì thế không bao giờ biết Sale đã trả lời,
    và đồng hồ chăm sóc của phiếu cứ chạy như chưa ai làm gì.
+
+**Vì sao thêm `owner.externalId`:** `ownerUserId` trong phản hồi là id NỘI BỘ của hệ này.
+Bên Sata không có cách nào biết nick thuộc nhân viên nào từ nó — id đó không khớp người
+dùng nào bên kia, bị lọc sạch, và cột "người sở hữu" rỗng vĩnh viễn **mà không một dòng
+lỗi nào**. `externalId` là id bên Sata do chính đường SSO ghi xuống. Chỉ THÊM trường vào
+`select`, không đổi gì đang có.
 
 🔴 `WEBHOOK_ALLOW_LOOPBACK=1` **chỉ dùng ở máy lẻ**. Bật trên máy chủ thật là mở đường cho
 người trong tổ chức dò mạng nội bộ qua ô địa chỉ webhook.

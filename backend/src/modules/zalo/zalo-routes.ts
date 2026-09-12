@@ -43,7 +43,11 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
         lastConnectedAt: true,
         archivedAt: true,
         createdAt: true,
-        owner: { select: { id: true, fullName: true, email: true } },
+        // `externalId` (bản phái sinh Sata): id người dùng BÊN SATA, do đường SSO ghi
+        // xuống. Không có nó thì bên Sata không cách nào biết nick này của ai —
+        // `ownerUserId` ở trên là id NỘI BỘ của hệ này, đưa sang đó không khớp ai cả và
+        // cột "người sở hữu" rỗng vĩnh viễn. Chỉ THÊM trường, không đổi gì đang có.
+        owner: { select: { id: true, fullName: true, email: true, externalId: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
