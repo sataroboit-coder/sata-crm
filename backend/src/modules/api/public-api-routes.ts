@@ -9,6 +9,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../../shared/database/prisma-client.js';
 import { logger } from '../../shared/utils/logger.js';
 import { getRedis } from '../../shared/redis-client.js';
+import { randomUUID } from 'node:crypto';
 
 // ── API key auth middleware ────────────────────────────────────────────────────
 
@@ -237,6 +238,87 @@ export async function publicApiRoutes(app: FastifyInstance): Promise<void> {
     } catch (err) {
       logger.error('[public-api] GET /conversations/:id/messages error:', err);
       return reply.status(500).send({ error: 'Failed to fetch messages' });
+    }
+  });
+
+  // ── Bản phái sinh Sata — ĐỐI SOÁT QUYỀN TRUY CẬP NICK (13/09/2026) ────────
+  //
+  // Mô hình trực của Sata: nhiều tư vấn viên LUÂN PHIÊN trên CÙNG một nick của cơ sở.
+  // `ZaloAccount.ownerUserId` là 1-1 nên không diễn tả được điều đó; `ZaloAccountAccess`
+  // thì đúng việc, và `getZaloScope` đã hợp nhất sẵn (`zalo-scope.ts:121-135`) — không
+  // phải sửa lõi phân quyền dòng nào.
+  //
+  // 🔴 ĐÂY LÀ ENDPOINT THAY-CẢ-TẬP, KHÔNG PHẢI "THÊM MỘT NGƯỜI". Bên Sata gửi danh
+  // sách ĐẦY ĐỦ người được phép; ai không có trong danh sách thì BỊ GỠ. Vế gỡ mới là vế
+  // quan trọng: người nghỉ việc, chuyển cơ sở, hay đổi sang vai không dùng ZaloCRM mà
+  // vẫn còn quyền là một cửa mở không ai nhớ đã mở. Làm kiểu "chỉ thêm" thì danh sách
+  // chỉ có phình, và hỏng câm.
+  //
+  // 🔴 CHỈ ĐỤNG NGƯỜI ĐẾN TỪ SATA (`externalId != null`). Tài khoản tạo tay trong
+  // ZaloCRM — chủ tổ chức, cộng tác viên ngoài — KHÔNG nằm trong quyền hạn của bên kia;
+  // gỡ họ là một hệ thống ngoài âm thầm thu quyền của người quản trị tại chỗ.
+
+  app.put('/api/public/zalo-accounts/:id/access', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const orgId = (request as any).orgId as string;
+      const { id } = request.params as { id: string };
+      const body = request.body as { externalIds?: unknown } | undefined;
+
+      // Danh sách RỖNG là hợp lệ và có nghĩa: "không ai bên Sata được dùng nick này nữa".
+      // Thiếu hẳn trường thì là lỗi gọi — phân biệt để một body hỏng không gỡ sạch quyền.
+      if (!Array.isArray(body?.externalIds)) {
+        return reply.status(400).send({ error: 'externalIds must be an array' });
+      }
+      const externalIds = [...new Set(
+        (body!.externalIds as unknown[])
+          .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+          .map((v) => v.trim()),
+      )].slice(0, 500);
+
+      const account = await prisma.zaloAccount.findFirst({
+        where: { id, orgId },
+        select: { id: true },
+      });
+      if (!account) return reply.status(404).send({ error: 'Zalo account not found' });
+
+      const nguoi = externalIds.length
+        ? await prisma.user.findMany({
+            where: { orgId, externalId: { in: externalIds } },
+            select: { id: true, externalId: true },
+          })
+        : [];
+      const idDuocPhep = nguoi.map((u) => u.id);
+      // `externalId` bên Sata chưa từng đăng nhập ZaloCRM ⇒ chưa có tài khoản ở đây.
+      // KHÔNG tạo hộ: tài khoản chỉ sinh ra từ vé SSO, nơi có đủ vai và tên thật.
+      const chuaCoTaiKhoan = externalIds.length - nguoi.length;
+
+      // CẤP — upsert theo khoá duy nhất [zaloAccountId, userId] nên gọi lại bao nhiêu
+      // lần cũng không đẻ bản ghi trùng. `permission: 'chat'` chứ KHÔNG phải 'admin':
+      // 'admin' ở bảng này là quyền quản trị chính nick đó.
+      let granted = 0;
+      for (const userId of idDuocPhep) {
+        const kq = await prisma.zaloAccountAccess.upsert({
+          where: { zaloAccountId_userId: { zaloAccountId: id, userId } },
+          update: { permission: 'chat' },
+          create: { id: randomUUID(), zaloAccountId: id, userId, permission: 'chat' },
+          select: { id: true },
+        });
+        if (kq) granted += 1;
+      }
+
+      // GỠ — chỉ người đến từ Sata mà không còn trong danh sách.
+      const xoa = await prisma.zaloAccountAccess.deleteMany({
+        where: {
+          zaloAccountId: id,
+          userId: { notIn: idDuocPhep.length ? idDuocPhep : ['__khong-co-ai__'] },
+          user: { orgId, externalId: { not: null } },
+        },
+      });
+
+      return { granted, revoked: xoa.count, unknown: chuaCoTaiKhoan };
+    } catch (err) {
+      logger.error('[public-api] PUT /zalo-accounts/:id/access error:', err);
+      return reply.status(500).send({ error: 'Failed to sync access' });
     }
   });
 

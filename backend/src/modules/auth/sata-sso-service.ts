@@ -36,9 +36,9 @@ import { getRedis } from '../../shared/redis-client.js';
 import { config } from '../../config/index.js';
 import { logger } from '../../shared/utils/logger.js';
 import type { JwtPayload } from './auth-service.js';
+import { nhomQuyenSata } from './sata-nhom-quyen.js';
 
-/** Trần hạn dùng của vé, tính bằng giây. Bên nhận ép, không tin bên ký. */
-export /**
+/**
  * Giá trị `passwordHash` của tài khoản CHỈ đăng nhập bằng SSO.
  *
  * Cố ý KHÔNG phải một chuỗi bcrypt hợp lệ: mọi lần so mật khẩu đều trượt, nên tài khoản
@@ -47,7 +47,8 @@ export /**
  */
 const HASH_CHI_SSO = '!sso-only-no-password';
 
-const SSO_MAX_AGE_SECONDS = 60;
+/** Trần hạn dùng của vé, tính bằng giây. Bên nhận ép, không tin bên ký. */
+export const SSO_MAX_AGE_SECONDS = 60;
 
 /** Vai bên Sata → vai trong tổ chức này. Chỉ hai đích; không có đường thành 'owner'. */
 const VAI_HOP_LE = new Set(['admin', 'member']);
@@ -195,6 +196,7 @@ export async function ssoLogin(token: string): Promise<JwtPayload> {
         fullName: true,
         passwordChangedAt: true,
         passwordHash: true,
+        permissionGroupId: true,
       },
     });
 
@@ -218,13 +220,18 @@ export async function ssoLogin(token: string): Promise<JwtPayload> {
       // đầu tiên thì cờ đó là hàng rào an ninh có thật — vé SSO không được phép hạ nó.
       const noDoiMatKhau =
         dangCo.passwordChangedAt === null && dangCo.passwordHash === HASH_CHI_SSO;
-      if (doiVai || doiTen || noDoiMatKhau) {
+      // Tài khoản tạo TRƯỚC bản vá 13/09/2026 mang `permissionGroupId = null` ⇒ 403 ở
+      // mọi route có `requireGrant`. Vá khi họ đăng nhập lại, KHÔNG đè nhóm đang có:
+      // người vận hành có thể đã chuyển họ sang nhóm rộng/hẹp hơn có chủ đích.
+      const thieuNhomQuyen = dangCo.permissionGroupId === null;
+      if (doiVai || doiTen || noDoiMatKhau || thieuNhomQuyen) {
         await prisma.user.update({
           where: { id: dangCo.id },
           data: {
             ...(doiVai ? { role: claims.role } : {}),
             ...(doiTen ? { fullName: claims.fullName } : {}),
             ...(noDoiMatKhau ? { passwordChangedAt: new Date() } : {}),
+            ...(thieuNhomQuyen ? { permissionGroupId: await nhomQuyenSata(org.id) } : {}),
           },
         });
       }
@@ -241,6 +248,9 @@ export async function ssoLogin(token: string): Promise<JwtPayload> {
       role: claims.role,
       passwordHash: HASH_CHI_SSO,
       isActive: true,
+      // Không có nhóm quyền thì `userHasGrant` trả false cho MỌI thứ (trừ role admin),
+      // tức tài khoản vào được nhưng nhận 403 ở màn đầu tiên. Xem `sata-nhom-quyen.ts`.
+      permissionGroupId: await nhomQuyenSata(org.id),
       // KHÔNG để null: null là cờ "phải đổi mật khẩu lần đầu" và bộ gác giao diện sẽ
       // nhốt tài khoản này ở /setup-password — một màn đòi "mật khẩu admin giao" mà
       // tài khoản SSO không hề có. Đặt mốc thời gian tạo = "khoản này không dùng mật
