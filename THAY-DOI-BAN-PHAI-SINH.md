@@ -149,6 +149,32 @@ người trong tổ chức dò mạng nội bộ qua ô địa chỉ webhook.
 
 ---
 
+### F4 — Public API đủ dùng cho đối soát và gửi từ Sata (GĐ3)
+
+| Tệp | Sửa |
+|---|---|
+| `backend/prisma/schema.prisma` | `Contact.externalRef` + `@@unique([orgId, externalRef])` |
+| `backend/prisma/migrations/20260913060000_sata_contact_external_ref/` | migration thuần thêm |
+| `backend/src/modules/api/public-api-routes.ts` | `GET /conversations` thêm `zaloAccountId`, `contact.externalRef`, bộ lọc `since` · `GET /conversations/:id` **mới** · `POST /messages/send` qua trần tốc độ + trả `msgId` + chống gửi trùng · `PUT /contacts/:id/external-ref` **mới** |
+
+Bốn điều đáng nhớ:
+
+1. **`POST /messages/send` của bản gốc KHÔNG hỏi trần tốc độ** — đường trong giao diện
+   thì có. Một khoá API gửi dày đốt hết hạn mức của nick, và người đang chat bị chặn mà
+   không hiểu vì sao. Tệ hơn: Zalo khoá nick là mất cả kênh liên lạc với khách.
+2. **Chống gửi trùng bằng `idempotencyKey`** (Redis, giữ 10 phút, lưu kèm `msgId` đã
+   trả). Bên gọi có hàng đợi gửi lại; mất phản hồi mà tin đã tới Zalo thì khách nhận hai
+   lần — kiểu hỏng KHÔNG lùi được. **Redis chết ⇒ vẫn gửi**, ngược hướng fail-closed của
+   vé SSO và cố ý: bên đó chặn kẻ giả mạo, bên này chỉ chặn một bản sao.
+3. **Endpoint gửi CỐ Ý không tự lưu `Message`.** Zalo dội tin của chính mình về qua
+   `selfListen`, `message-handler.ts` lưu nó rồi bắn `message.sent`. Lưu thêm một đường
+   nữa là hai bản ghi cho một tin, hoặc một cuộc đua khoá trùng.
+4. **`externalRef` duy nhất trong một tổ chức.** Gắn chồng trả **409 `EXTERNAL_REF_TAKEN`**
+   chứ không đè: đè là âm thầm đổi chủ một liên kết, mà dấu hiệu thật ở đây là hai liên
+   hệ trùng người — việc phải xử là GỘP. `null` là gỡ liên kết, hợp lệ.
+
+---
+
 ### F5 — nút "Tạo lead Sata" trong màn chat
 
 | Tệp | Sửa |
@@ -189,5 +215,4 @@ lại — đè ở `getAiConfig` là bịt cả ba chỗ gọi AI bằng một d
 
 ## Chưa làm (các việc còn lại của kế hoạch tích hợp)
 
-- **F4** — mở rộng Public API (giai đoạn 3). Kéo theo vế "Mở lead" của F5.
 - **F6** — nghĩa vụ giấy phép (bảng ở đầu tài liệu). **Chặn ở việc chốt tên sản phẩm.**

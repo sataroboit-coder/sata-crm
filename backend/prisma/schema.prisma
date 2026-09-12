@@ -761,7 +761,16 @@ model Contact {
   // Chạy song song Contact.tags JSON cho dual-write Wave 3-4.
   tagAssignments ContactTag[]
 
+  /// Bản phái sinh Sata (F4) — khoá của bản ghi TƯƠNG ỨNG bên hệ quản trị Sata
+  /// (`Lead.id`). Để hệ bên kia mở đúng phiếu khách từ màn chat mà không phải dò
+  /// theo số điện thoại — dò theo số là sai ngay khi hai cơ sở có cùng một số.
+  /// `@@unique([orgId, externalRef])`: một phiếu bên kia chỉ được gắn vào MỘT liên hệ
+  /// trong cùng tổ chức; gắn chồng là dấu hiệu hai liên hệ trùng cần gộp, và phải nổi
+  /// lên thành lỗi chứ không im lặng đổi chủ.
+  externalRef String? @map("external_ref")
+
   @@unique([orgId, zaloGlobalId])
+  @@unique([orgId, externalRef])
   @@index([orgId, phone])
   @@index([orgId, phoneNormalized])
   @@index([orgId, zaloUid])
