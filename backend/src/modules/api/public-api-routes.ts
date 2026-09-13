@@ -241,6 +241,47 @@ export async function publicApiRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
+  // ── Bản phái sinh Sata — DANH SÁCH NICK QUA PUBLIC API (13/09/2026) ───────
+  //
+  // 🔴 VÌ SAO PHẢI CÓ, dù `/api/v1/zalo-accounts` đã tồn tại: đường `/api/v1/*` gác bằng
+  // `authMiddleware` (JWT của người dùng), còn hệ ngoài chỉ cầm khoá API. Gọi đường kia
+  // bằng `x-api-key` trả **401** — đo thật 13/09/2026. Bên Sata trỏ nhầm vào đó nên nút
+  // "Đồng bộ nick" của họ chưa bao giờ chạy, và hỏng câm: màn quản trị chỉ hiện bảng rỗng.
+  //
+  // Trả CÙNG hình dạng với route v1 để bên nhận không phải viết hai bộ ánh xạ, kèm
+  // `owner.externalId` (id bên hệ ngoài) — thiếu nó thì họ không biết nick của ai.
+  // KHÔNG trả `proxyUrl`: khoá API là bí mật của máy chủ, không phải của người, nên đừng
+  // đẩy thông tin proxy ra một kênh không gắn với ai cả.
+
+  app.get('/api/public/zalo-accounts', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const orgId = (request as any).orgId as string;
+      const { includeArchived } = request.query as Record<string, string>;
+
+      const accounts = await prisma.zaloAccount.findMany({
+        where: { orgId, ...(includeArchived === 'true' ? {} : { archivedAt: null }) },
+        select: {
+          id: true,
+          zaloUid: true,
+          displayName: true,
+          phone: true,
+          status: true,
+          ownerUserId: true,
+          lastConnectedAt: true,
+          archivedAt: true,
+          createdAt: true,
+          owner: { select: { id: true, fullName: true, email: true, externalId: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      return accounts;
+    } catch (err) {
+      logger.error('[public-api] GET /zalo-accounts error:', err);
+      return reply.status(500).send({ error: 'Failed to fetch zalo accounts' });
+    }
+  });
+
   // ── Bản phái sinh Sata — ĐỐI SOÁT QUYỀN TRUY CẬP NICK (13/09/2026) ────────
   //
   // Mô hình trực của Sata: nhiều tư vấn viên LUÂN PHIÊN trên CÙNG một nick của cơ sở.
